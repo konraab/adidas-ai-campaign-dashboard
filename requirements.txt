@@ -3,3 +3,7 @@ openai>=0.27.0
 pandas
 matplotlib
 openai>=1.2.0
+streamlit
+pandas
+matplotlib
+openai>=1.3.5
