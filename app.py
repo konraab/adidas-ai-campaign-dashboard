@@ -51,27 +51,25 @@ if uploaded_file:
             kampagne_data = df[df["Campaign"] == campaign]
 
             prompt = f"""
-            Du bist ein Marketing-Analyst. Analysiere folgende Kampagnendaten:
-            Kampagne: {campaign}
-            Produkte: {', '.join(kampagne_data['Product'].unique())}
-            Gesamte Nachfrage (Demand Value): {kampagnen_demand[campaign]}
-            Laufzeit: {kampagne_data['Start Date'].min().strftime('%d.%m.%Y')} bis {kampagne_data['End Date'].max().strftime('%d.%m.%Y')}
+Du bist ein Marketing-Analyst. Analysiere folgende Kampagnendaten:
+Kampagne: {campaign}
+Produkte: {', '.join(kampagne_data['Product'].unique())}
+Gesamte Nachfrage (Demand Value): {kampagnen_demand[campaign]}
+Laufzeit: {kampagne_data['Start Date'].min().strftime('%d.%m.%Y')} bis {kampagne_data['End Date'].max().strftime('%d.%m.%Y')}
 
-            Gib eine kurze, verständliche Zusammenfassung und eine Empfehlung zur Optimierung der Kampagne.
-            """
+Gib eine kurze, verständliche Zusammenfassung und eine Empfehlung zur Optimierung der Kampagne.
+"""
 
             response = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo",  # oder "gpt-4"
-    messages=[
-        {"role": "user", "content": prompt}
-    ],
-    max_tokens=150,
-    temperature=0.7,
-)
-insight = response.choices[0].message.content.strip()
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=150,
+                temperature=0.7,
+            )
 
-
-            insight = response.choices[0].text.strip()
+            insight = response.choices[0].message.content.strip()
 
             st.markdown(f"### Kampagne: {campaign}")
             st.write(insight)
