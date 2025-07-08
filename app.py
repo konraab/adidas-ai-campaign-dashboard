@@ -60,12 +60,16 @@ if uploaded_file:
             Gib eine kurze, verständliche Zusammenfassung und eine Empfehlung zur Optimierung der Kampagne.
             """
 
-            response = openai.Completion.create(
-                engine="text-davinci-003",
-                prompt=prompt,
-                max_tokens=150,
-                temperature=0.7,
-            )
+            response = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",  # oder "gpt-4"
+    messages=[
+        {"role": "user", "content": prompt}
+    ],
+    max_tokens=150,
+    temperature=0.7,
+)
+insight = response.choices[0].message.content.strip()
+
 
             insight = response.choices[0].text.strip()
 
