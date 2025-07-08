@@ -2,90 +2,118 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
-from openai import OpenAI
 import os
 
-# Styling (Adidas-like + grauer Hintergrund)
-st.set_page_config(page_title="Adidas Banner Dashboard", layout="wide")
+# 🎨 Custom Styling
+st.set_page_config(page_title="Banner Performance Dashboard", layout="wide")
+
+# 👉 Hintergrundfarbe & adidas-Stil
 st.markdown("""
     <style>
-        body {
-            background-color: #f2f2f2;
-        }
-        .block-container {
-            padding-top: 2rem;
-        }
-        h1 {
-            color: #000000;
-        }
+    .main {
+        background-color: #f0f0f0;
+    }
+    .block-container {
+        padding: 2rem 2rem;
+    }
+    h1, h2, h3 {
+        color: #000;
+        font-family: 'Helvetica Neue', sans-serif;
+    }
+    .stButton>button {
+        background-color: #000;
+        color: #fff;
+        border-radius: 12px;
+        padding: 0.5em 1em;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Adidas Campaign Dashboard mit GPT Insights")
+st.title("📊 Banner Performance Dashboard mit GPT Insights (Demo-Modus möglich)")
 
 st.markdown("""
-Lade deine CSV-Datei mit Kampagnen-, Produkt- und Demand-Daten hoch. Die App zeigt KPIs und GPT-gestützte Analysen – gesteuert per Button.
+Lade deine CSV-Datei mit Kampagnen-, Produkt- und Demand-Daten hoch. Das Tool zeigt automatisch KPIs und **GPT-basierte oder simulierte Empfehlungen** je Kampagne.
 """)
 
+# 🔐 Optional: OpenAI-Key aus Streamlit Secrets
+api_key = st.secrets.get("openai_api_key", None)
+
+try:
+    import openai
+    if api_key:
+        openai.api_key = api_key
+        client_available = True
+    else:
+        client_available = False
+except ImportError:
+    client_available = False
+
+# 📤 CSV Upload
 uploaded_file = st.file_uploader("📁 CSV-Datei hochladen", type=["csv"])
 
+# 🧠 GPT-Analyse (Dummy bei Bedarf)
+def generate_campaign_insight(campaign, products, demand, start, end):
+    if client_available:
+        try:
+            import openai
+            response = openai.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "Du bist ein datenbasierter Marketing-Analyst."},
+                    {"role": "user", "content": f"""
+Analysiere diese Kampagne:
+Kampagne: {campaign}
+Produkte: {products}
+Demand: {demand}
+Zeitraum: {start} bis {end}
+Gib eine klare Zusammenfassung und Optimierungsempfehlung.
+"""}
+                ],
+                temperature=0.7,
+                max_tokens=150
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            return f"⚠️ Fehler bei GPT: {str(e)}"
+
+    # Dummy-Antwort
+    return f"""
+Die Kampagne **{campaign}** zeigt eine solide Nachfrage von **{demand:,.0f} Einheiten**. 
+Die Laufzeit vom {start} bis {end} war ausreichend, jedoch könnten weitere Touchpoints mit Produkten wie *{products}* die Sichtbarkeit steigern.
+👉 Empfehlung: A/B-Tests mit alternativen Creatives und stärkere Platzierung auf Conversion-starken Plattformen.
+"""
+
+# 📅 Datumsparser
 def parse_date(date_str):
     return datetime.strptime(date_str + "-2025", "%d-%b-%Y")
 
-# OpenAI Client Setup
-try:
-    client = OpenAI(api_key=st.secrets["openai_api_key"])
-except KeyError:
-    st.error("❌ OpenAI API-Key fehlt in den Secrets. Lege ihn unter `.streamlit/secrets.toml` an.")
-    st.stop()
-
+# 🔄 App-Logik
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
 
     required_cols = {"Campaign", "Product", "Demand Value", "Start Date", "End Date"}
     if not required_cols.issubset(df.columns):
-        st.error(f"❌ Die Datei muss folgende Spalten enthalten: {required_cols}")
-        st.stop()
+        st.error(f"❌ Deine Datei muss folgende Spalten enthalten: {required_cols}")
+    else:
+        df["Start Date"] = df["Start Date"].apply(parse_date)
+        df["End Date"] = df["End Date"].apply(parse_date)
+        df["Demand Value"] = df["Demand Value"].astype(float)
 
-    df["Start Date"] = df["Start Date"].apply(parse_date)
-    df["End Date"] = df["End Date"].apply(parse_date)
-    df["Demand Value"] = df["Demand Value"].astype(float)
+        st.subheader("🧾 Rohdaten")
+        st.dataframe(df)
 
-    st.subheader("🧾 Rohdaten")
-    st.dataframe(df)
+        st.subheader("📈 Demand pro Kampagne")
+        kampagnen_demand = df.groupby("Campaign")["Demand Value"].sum().sort_values(ascending=False)
+        st.bar_chart(kampagnen_demand)
 
-    st.subheader("📈 Kampagnen Demand Vergleich")
-    kampagnen_demand = df.groupby("Campaign")["Demand Value"].sum().sort_values(ascending=False)
-    st.bar_chart(kampagnen_demand)
-
-    st.subheader("🤖 GPT Insights – je Kampagne abrufbar")
-
-    for campaign in kampagnen_demand.index:
-        with st.expander(f"🔍 Kampagne: {campaign}"):
+        st.subheader("🤖 GPT-Analyse je Kampagne")
+        for campaign in kampagnen_demand.index:
             kampagne_data = df[df["Campaign"] == campaign]
-            if st.button(f"GPT Insight generieren für '{campaign}'"):
-                with st.spinner("GPT analysiert die Kampagne..."):
-                    prompt = f"""
-                    Du bist ein Marketing-Analyst. Analysiere folgende Kampagnendaten:
-                    Kampagne: {campaign}
-                    Produkte: {', '.join(kampagne_data['Product'].unique())}
-                    Gesamte Nachfrage (Demand Value): {kampagnen_demand[campaign]}
-                    Laufzeit: {kampagne_data['Start Date'].min().strftime('%d.%m.%Y')} bis {kampagne_data['End Date'].max().strftime('%d.%m.%Y')}
+            products = ', '.join(kampagne_data["Product"].unique())
+            demand = kampagnen_demand[campaign]
+            start = kampagne_data["Start Date"].min().strftime('%d.%m.%Y')
+            end = kampagne_data["End Date"].max().strftime('%d.%m.%Y')
 
-                    Gib eine klare, kurze Zusammenfassung + Optimierungsempfehlung für das Marketing-Team.
-                    """
-
-                    try:
-                        response = client.chat.completions.create(
-                            model="gpt-3.5-turbo",
-                            messages=[
-                                {"role": "system", "content": "Du bist ein Marketing-Analyst."},
-                                {"role": "user", "content": prompt}
-                            ],
-                            max_tokens=300,
-                            temperature=0.7,
-                        )
-                        st.success("✅ Insight generiert:")
-                        st.write(response.choices[0].message.content.strip())
-                    except Exception as e:
-                        st.error(f"Fehler bei der Anfrage an GPT: {e}")
+            with st.expander(f"📌 Kampagne: {campaign}"):
+                insight = generate_campaign_insight(campaign, products, demand, start, end)
+                st.markdown(insight)
