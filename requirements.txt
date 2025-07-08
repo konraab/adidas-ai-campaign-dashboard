@@ -3,3 +3,7 @@ openai
 pandas
 requests
 matplotlib
+streamlit
+openai>=0.27.0
+pandas
+matplotlib
